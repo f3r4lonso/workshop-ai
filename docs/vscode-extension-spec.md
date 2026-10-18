@@ -213,6 +213,7 @@ appears.
 |---|---|---|---|---|
 | `claude` | `claude` / `claude.exe` / `claude.cmd` on PATH | `claude --add-dir <infra>\clients "<first message>"` (Stage 1, Observed in code) | §6.1 | interactive only |
 | `codex` | `codex` on PATH | `codex` in the project folder with the first message as prompt argument (Requires verification: codex accepts an initial prompt argument), optional `--sandbox read-only` | display only (§6.2) | launched only after R8; no per-agent tool limits (infra `ai-architecture.md` §4) |
+| `copilot` (planned, `docs/copilot-and-console-buttons-plan.md`) | `copilot` on PATH | `copilot` in the project folder; interactive start with a first message Requires verification (proposed R10); never `-p`, `--allow-all` or `--yolo` | none | handoff target first; launched only after proposed R10 and R11 |
 
 Adding a client follows FR-13: a new adapter row, no change to the task or state formats.
 
@@ -535,7 +536,7 @@ Not legal advice. Sources as cited in vision §17.2.
 | Increment | Vision stage | Content | Exit criterion | Gate |
 |---|---|---|---|---|
 | E1 Shell | 2 | detection (EXT-01), infra setup (AX-2), Tasks view and task creation through `wai --json`, Restricted Mode | J1 and J2 Observed on the sandbox | build task Gate B (plan), then its review gate |
-| E2 Launch | 2 | J3 with the R1 outcome (M or fallback), EXT-04, EXT-07, J6 | J3 Observed with Claude Code; EXT-04/07 tests pass | R1 decided; R4 recorded |
+| E2 Launch | 2 | J3 with the R1 outcome (M or fallback), EXT-04, EXT-07, J6; console and Start/Resume buttons (`docs/copilot-and-console-buttons-plan.md` part B, A1 on every launch) | J3 Observed with Claude Code; EXT-04/07 tests pass | R1 decided; R4 recorded |
 | E3 Switch | 2 | J4/§5 with recap (needs `wai recap`, with the token-optimization task), manual trigger (J5) | one switch with recap Observed (vision §16 Stage 2 exit) | build task gate; token task recap delivered or a Stage 1-only recap approved |
 | E4 Claude Code warning | 2 | §6.1 status line/hook, thresholds | warning Observed in a sandbox session at a real or simulated threshold (labelled) | R3 gate |
 | E5 Automatic continuation | 3 | §5 (S3) steps | one automated switch Observed with §15.3 data | vision §17.2 hard gate (R7), Stage 3 task prompt |
