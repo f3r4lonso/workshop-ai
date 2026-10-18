@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.wai-*.tmp
+
+# Never commit credentials
+.env
+.env.*
+!.env.example
+auth.json
+.credentials.json
+settings.local.json

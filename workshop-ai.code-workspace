@@ -1,0 +1,57 @@
+{
+  // Open with: code workshop-ai.code-workspace  (File > Open Workspace from File).
+  // Run a terminal: Terminal > Run Task... > "Claude Code + Codex" (or one of the others).
+  "folders": [
+    { "name": "workshop-ai", "path": "." },
+    { "name": "sandbox", "path": "../workshop-ai-sandbox" },
+    { "name": "infra", "path": "../../infra" }
+  ],
+  "settings": {
+    "files.exclude": { "**/__pycache__": true, "**/*.pyc": true },
+    "task.allowAutomaticTasks": "off"
+  },
+  "extensions": {
+    // Optional chat panels from the official, verified publishers; VS Code only suggests them.
+    "recommendations": ["anthropic.claude-code", "openai.chatgpt"]
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Claude Code",
+        "type": "process",
+        "command": "claude",
+        "args": ["--add-dir", "${workspaceFolder:infra}/clients"],
+        "options": { "cwd": "${workspaceFolder:workshop-ai}" },
+        "problemMatcher": [],
+        "presentation": { "panel": "dedicated", "group": "clients", "focus": true, "clear": true }
+      },
+      {
+        "label": "Codex",
+        "type": "process",
+        "command": "codex",
+        "options": { "cwd": "${workspaceFolder:workshop-ai}" },
+        "problemMatcher": [],
+        "presentation": { "panel": "dedicated", "group": "clients", "clear": true }
+      },
+      {
+        "label": "Claude Code + Codex",
+        "dependsOn": ["Claude Code", "Codex"],
+        "dependsOrder": "parallel",
+        "problemMatcher": []
+      },
+      {
+        "label": "Workshop AI terminal (wai)",
+        "type": "process",
+        "command": "powershell.exe",
+        "args": [
+          "-NoExit",
+          "-Command",
+          "Set-Alias wai '${workspaceFolder:workshop-ai}\\wai.cmd'; Set-Location '${workspaceFolder:sandbox}'; wai status"
+        ],
+        "problemMatcher": [],
+        "presentation": { "panel": "dedicated", "focus": true }
+      }
+    ]
+  }
+}
