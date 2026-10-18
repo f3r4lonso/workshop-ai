@@ -1,6 +1,7 @@
 # Workshop AI — Stage 1 specification
 
 Status: approved at Gate B (2026-10-17); updated during the build (2026-10-18: worktrees per pilot run, ignored results folder, Codex read-only check, snapshots instead of an index file).
+Note (2026-10-18): the VS Code extension that follows Stage 1 is specified in [vscode-extension-spec.md](vscode-extension-spec.md); this Stage 1 content is unchanged.
 Implements the P0 set of the product vision v1.1 (infra `docs/workshop-ai-product-vision.md`, §10) under its decisions (§17). Requirement ids (FR-xx, NFR-xx) refer to the vision.
 
 Labels: **Proposed** unless stated. "Infra" = the shared infrastructure repository (default

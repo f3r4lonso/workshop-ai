@@ -3,6 +3,11 @@
 `wai` runs one task with one AI client and keeps the task's verified state in your project, so a new session can
 resume it and another client can take it over from a reviewed package. Specification: [docs/stage-1-spec.md](docs/stage-1-spec.md).
 
+**Next (Stage 2, specified, not built):** a Workshop AI VS Code extension becomes the main hub over `wai`: it detects
+your clients, sets up the shared infrastructure, opens and closes client sessions after your approval, and switches
+to the client you choose with a saved recap. `wai` stays Python standard library; the extension is TypeScript with no
+runtime packages, in `vscode-extension/`. Specification: [docs/vscode-extension-spec.md](docs/vscode-extension-spec.md).
+
 ## Use it
 
 PowerShell, in a normal terminal (approvals do not work from inside an AI session):
