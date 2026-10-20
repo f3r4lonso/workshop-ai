@@ -40,9 +40,13 @@ class ProjectCase(unittest.TestCase):
         self.project.mkdir()
         self.answers = []
         self.terminal = True
+        self.plugin = "enabled"
+        self.trusted_claude = True
         patches = [
             mock.patch.object(approval, "_is_terminal", lambda: self.terminal),
             mock.patch.object(approval, "_ask", self._answer),
+            mock.patch("workshop_ai.clients.plugin_status", lambda exe: self.plugin),
+            mock.patch("workshop_ai.clients._from_trusted_path", lambda exe, roots: self.trusted_claude),
         ]
         for p in patches:
             p.start()

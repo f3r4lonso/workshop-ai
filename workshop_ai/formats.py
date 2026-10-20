@@ -5,10 +5,14 @@ Parsing keeps everything it does not own: free text, unknown sections and their 
 
 import re
 
+from . import engines
 from .errors import VALIDATION, WaiError
 
 TASK_ID_RE = re.compile(r"^[a-z0-9][a-z0-9-]{0,63}$")
-CLIENTS = ("claude", "codex")
+try:
+    CLIENTS = engines.wai_clients()  # ("claude", "codex") from engines.json
+except (OSError, ValueError) as exc:  # RegistryError and JSON errors are ValueErrors
+    raise SystemExit(f"error: cannot read the engine list {engines.REGISTRY_PATH}: {exc}") from None
 STATUSES = ("draft", "ready", "in-progress", "blocked", "done")
 TASK_REQUIRED_KEYS = ("id", "client", "status", "created", "revision")
 TASK_REQUIRED_SECTIONS = ("Objective", "Acceptance criteria", "Next action")

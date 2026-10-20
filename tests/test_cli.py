@@ -52,16 +52,17 @@ class CliTests(ProjectCase):
         brief = (self.project / ".workshop-ai" / "tasks" / "t1" / "brief.md").read_text()
         self.assertIn("Do not run `wai` yourself", brief)
 
-    def test_start_approved_runs_interactive_claude_with_shared_folder(self):
+    def test_start_approved_runs_plain_interactive_claude(self):
         self.new_task()
         with mock.patch("workshop_ai.clients.shutil.which", return_value="claude"), \
              mock.patch("workshop_ai.cli.subprocess.run") as run:
             code, _, _ = self.run_cli("resume", "t1", answers=["y"])
         self.assertEqual(code, OK)
         command = run.call_args.args[0]
-        self.assertEqual(command[:2], ["claude", "--add-dir"])
-        self.assertTrue(command[2].endswith("clients"))
-        self.assertIn("brief.md", command[3])
+        self.assertEqual(command[0], "claude")
+        self.assertNotIn("--add-dir", command)
+        self.assertEqual(len(command), 2)
+        self.assertIn("brief.md", command[1])
         self.assertNotIn("-p", command)
         brief = (self.project / ".workshop-ai" / "tasks" / "t1" / "brief.md").read_text()
         self.assertIn("being **resumed**", brief)

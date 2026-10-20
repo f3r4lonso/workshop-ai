@@ -9,3 +9,9 @@ __pycache__/
 auth.json
 .credentials.json
 settings.local.json
+
+# Web app (merged from workshop-infrastructure-ui in v2 V1)
+web/node_modules/
+web/dist/
+preview.png
+.preview-edge/

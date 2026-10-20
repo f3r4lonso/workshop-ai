@@ -1,6 +1,7 @@
 """`wai` command line (spec section 2)."""
 
 import argparse
+import json
 import os
 import subprocess
 import sys
@@ -8,13 +9,21 @@ import traceback
 from pathlib import Path
 
 from . import __version__, approval, clients, formats, handoff, resources, scan
-from .errors import OK, REFUSED, VALIDATION, WaiError
+from .errors import OK, REFUSED, USAGE, VALIDATION, WaiError
 from .fsutil import atomic_write, read_text
 from .state import Project, default_infra
 
 
 def out(text=""):
     print(text)
+
+
+def emit(payload):
+    """Machine-readable output for --json: one JSON object on stdout (VS Code extension spec section 3.2).
+
+    ASCII escapes keep it intact whatever the console code page is (the extension runs python -E, so
+    PYTHONIOENCODING and PYTHONUTF8 are ignored)."""
+    print(json.dumps({"schema": "wai.v1", **payload}, default=str))
 
 
 def project_from(args):
@@ -24,7 +33,10 @@ def project_from(args):
 # init / resources / status ------------------------------------------------
 def cmd_init(args):
     project = project_from(args)
-    if project.init(args.name):
+    created = project.init(args.name)
+    if args.json:
+        emit({"initialized": True, "created": created})
+    elif created:
         out(f"Initialized Workshop AI in {project.dir.name}/ (project-state.md, tasks/, .gitignore).")
         out("Next: wai task new <task-id> --client claude")
     else:
@@ -35,6 +47,9 @@ def cmd_init(args):
 def cmd_resources(args):
     kinds = [args.kind] if args.kind else list(resources.KINDS)
     listed = resources.list_resources(Path(args.infra or default_infra()), kinds)
+    if args.json:
+        emit({kind: {"items": rows, "warnings": warnings} for kind, (rows, warnings) in listed.items()})
+        return OK
     for kind in kinds:
         rows, warnings = listed[kind]
         out(f"{kind} ({len(rows)})")
@@ -52,23 +67,35 @@ def cmd_resources(args):
     return OK
 
 
+def task_summary(project, task_id):
+    try:
+        doc = project.load_task(task_id)
+    except WaiError as exc:
+        return {"id": task_id, "error": str(exc)}
+    history = [l for l in doc.text("History").splitlines() if l.startswith("- rev")]
+    return {"id": task_id, "client": doc.header.get("client"), "status": doc.header.get("status"),
+            "last_checkpoint": history[-1][2:].split(", commit")[0] if history else None,
+            "next_action": " ".join(doc.text("Next action").split()),
+            "task_file": f".workshop-ai/{project.rel(project.task_file(task_id))}"}
+
+
 def cmd_status(args):
     project = project_from(args)
     project.require_init()
-    ids = project.task_ids()
-    if not ids:
+    tasks = [task_summary(project, task_id) for task_id in project.task_ids()]
+    if args.json:
+        emit({"project": str(project.root), "tasks": tasks})
+        return OK
+    if not tasks:
         out("No tasks yet. Create one with wai task new <task-id> --client claude")
         return OK
-    for task_id in ids:
-        try:
-            doc = project.load_task(task_id)
-        except WaiError as exc:
-            out(f"{task_id:<24} unreadable: {exc}")
+    for t in tasks:
+        if "error" in t:
+            out(f"{t['id']:<24} unreadable: {t['error']}")
             continue
-        history = [l for l in doc.text("History").splitlines() if l.startswith("- rev")]
-        last = history[-1][2:].split(", commit")[0] if history else "no checkpoint"
-        nxt = " ".join(doc.text("Next action").split())[:60] or "-"
-        out(f"{task_id:<24} {doc.header.get('client', '?'):<7} {doc.header.get('status', '?'):<12} {last:<24} next: {nxt}")
+        last = t["last_checkpoint"] or "no checkpoint"
+        nxt = t["next_action"][:60] or "-"
+        out(f"{t['id']:<24} {t['client'] or '?':<7} {t['status'] or '?':<12} {last:<24} next: {nxt}")
     return OK
 
 
@@ -76,6 +103,9 @@ def cmd_status(args):
 def cmd_task_new(args):
     project = project_from(args)
     path = project.new_task(args.task_id, args.client)
+    if args.json:
+        emit({"task": args.task_id, "client": args.client, "status": "draft", "task_file": f".workshop-ai/{project.rel(path)}"})
+        return OK
     out(f"Created .workshop-ai/tasks/{args.task_id}/task.md (status: draft, client: {args.client}).")
     if not args.no_edit and sys.stdin.isatty() and sys.stdout.isatty():
         editor = os.environ.get("EDITOR") or ("notepad" if os.name == "nt" else "vi")
@@ -105,6 +135,9 @@ def cmd_context(args):
         current = [p for p in current if p not in targets]
         formats.set_context_paths(doc, current)
         project.save_task(args.task_id, doc)
+    if args.json:
+        emit({"task": args.task_id, "context": current})
+        return OK
     out(f"Context for {args.task_id} ({len(current)} file(s)):")
     for p in current:
         out(f"  - {p}")
@@ -134,7 +167,7 @@ def start_session(args, resume):
     out(f"  folder:  {project.root}")
     out(f"  command: {subprocess.list2cmdline(command)}")
     out(f"  context: {', '.join(context) if context else '(none)'}")
-    for w in warnings:
+    for w in warnings + clients.start_warnings(client, command, project.root):
         out(f"  warning: {w}")
     if not approval.confirm("Start this session?"):
         out("Not started.")
@@ -276,27 +309,29 @@ def build_parser():
     common.add_argument("--project", help="project folder (default: current folder)")
     common.add_argument("--infra", help="shared infrastructure folder (default: WORKSHOP_AI_INFRA or ~/workshop/infra)")
     common.add_argument("--debug", action="store_true", help="show tracebacks")
+    machine = argparse.ArgumentParser(add_help=False)
+    machine.add_argument("--json", action="store_true", help="print one JSON object (for the VS Code extension)")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p = sub.add_parser("init", parents=[common], help="set up .workshop-ai/ in a project")
+    p = sub.add_parser("init", parents=[common, machine], help="set up .workshop-ai/ in a project")
     p.add_argument("--name", help="project name (default: folder name)")
     p.set_defaults(func=cmd_init)
 
-    p = sub.add_parser("resources", parents=[common], help="list shared clients, agents, skills, tasks")
+    p = sub.add_parser("resources", parents=[common, machine], help="list shared clients, agents, skills, tasks")
     p.add_argument("kind", nargs="?", choices=resources.KINDS)
     p.set_defaults(func=cmd_resources)
 
-    p = sub.add_parser("status", parents=[common], help="one line per task")
+    p = sub.add_parser("status", parents=[common, machine], help="one line per task")
     p.set_defaults(func=cmd_status)
 
     task = sub.add_parser("task", help="task contracts").add_subparsers(dest="task_command", required=True)
-    p = task.add_parser("new", parents=[common], help="create a task and choose its client")
+    p = task.add_parser("new", parents=[common, machine], help="create a task and choose its client")
     p.add_argument("task_id")
     p.add_argument("--client", required=True, choices=formats.CLIENTS)
     p.add_argument("--no-edit", action="store_true", help="do not open an editor")
     p.set_defaults(func=cmd_task_new)
 
-    p = sub.add_parser("context", parents=[common], help="select the files a task may use")
+    p = sub.add_parser("context", parents=[common, machine], help="select the files a task may use")
     p.add_argument("action", choices=("add", "remove", "list"))
     p.add_argument("task_id")
     p.add_argument("paths", nargs="*")
@@ -325,11 +360,21 @@ def build_parser():
 
 def main(argv=None):
     parser = build_parser()
-    args = parser.parse_args(argv)
+    try:
+        args = parser.parse_args(argv)
+    except SystemExit as exc:
+        given = sys.argv[1:] if argv is None else argv
+        if exc.code not in (0, None) and "--json" in given:
+            emit({"error": {"code": USAGE, "message": "invalid command line (see wai --help)"}})
+            return USAGE
+        raise
     try:
         return args.func(args)
     except WaiError as exc:
-        print(f"error: {exc}", file=sys.stderr)
+        if getattr(args, "json", False):
+            emit({"error": {"code": exc.code, "message": str(exc)}})
+        else:
+            print(f"error: {exc}", file=sys.stderr)
         return exc.code
     except KeyboardInterrupt:
         print("interrupted; files left as they were", file=sys.stderr)
@@ -337,7 +382,9 @@ def main(argv=None):
     except Exception as exc:  # unexpected: keep state, explain, offer --debug
         if getattr(args, "debug", False):
             traceback.print_exc()
-        else:
+        if getattr(args, "json", False):
+            emit({"error": {"code": 1, "message": f"unexpected {type(exc).__name__}: {exc}"}})
+        elif not getattr(args, "debug", False):
             print(f"error: unexpected {type(exc).__name__}: {exc} (run again with --debug for details)",
                   file=sys.stderr)
         return 1

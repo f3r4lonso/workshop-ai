@@ -4,9 +4,11 @@ Only interactive sessions are started (vision section 17.2): the user types in t
 Codex is a handoff target only in Stage 1 and is never launched by the tool.
 """
 
+import os
+import re
 import shutil
 
-from . import formats
+from . import formats, procutil
 from .errors import ENVIRONMENT, USAGE, WaiError
 
 FIRST_MESSAGE = "Read `.workshop-ai/tasks/{task_id}/brief.md` and follow it."
@@ -49,14 +51,70 @@ def build_brief(task_id, task_text, context, resume=False):
     )
 
 
+PLUGIN_LINE_RE = re.compile(r"^\W*workshop@")
+PLUGIN_ANY_RE = re.compile(r"^\W*[\w.-]+@[\w.-]+\s*$")
+
+
 def claude_command(infra):
+    """Plain interactive `claude`: shared agents and skills come from the `workshop` plugin, not `--add-dir`."""
     exe = shutil.which("claude")
     if not exe:
         raise WaiError("Claude Code (claude) is not on PATH: install it first (infra docs/onboarding.md)", ENVIRONMENT)
-    clients_dir = infra / "clients"
-    if not clients_dir.is_dir():
-        raise WaiError(f"shared clients folder not found: {clients_dir}", ENVIRONMENT)
-    return [exe, "--add-dir", str(clients_dir)]
+    return [exe]
+
+
+def plugin_status(exe):
+    """'enabled', 'missing' or 'unknown' for the `workshop` plugin, from `claude plugin list` (no credentials read)."""
+    result = procutil.run_bounded([exe, "plugin", "list"], timeout=20)
+    if result is None or result[0]:
+        return "unknown"
+    blocks, current = [], None
+    for line in result[1].splitlines():
+        if PLUGIN_LINE_RE.match(line):
+            current = []
+            blocks.append(current)
+        elif current is not None and PLUGIN_ANY_RE.match(line):
+            current = None  # another plugin's block starts
+        elif current is not None:
+            current.append(line.strip().lower())
+    for block in blocks:
+        status = next((line for line in block if line.startswith("status:")), "")
+        if "enabled" in status and "disabled" not in status:
+            return "enabled"
+    return "missing"
+
+
+def _from_trusted_path(exe, roots):
+    """True when exe sits directly in an absolute PATH folder outside every root (never the current folder)."""
+    exe = os.path.abspath(exe)
+    folder = os.path.normcase(os.path.dirname(exe))
+    for root in roots:
+        base = os.path.normcase(os.path.abspath(root)).rstrip("\\/")
+        if folder == base or folder.startswith(base + os.sep):
+            return False
+    entries = [e.strip().strip('"') for e in (os.environ.get("PATH") or "").split(os.pathsep)]
+    return any(e and os.path.isabs(e) and os.path.normcase(os.path.abspath(e)) == folder for e in entries)
+
+
+def start_warnings(client, command, project_root):
+    """Warnings shown before the approval; they never block a start.
+
+    The plugin check runs `claude` before the approval, so it runs only a `claude` found on an absolute PATH folder
+    outside the project and the current folder; a copy found anywhere else is shown in the command and not run.
+    """
+    if client != "claude":
+        return []
+    if not _from_trusted_path(command[0], [project_root, os.getcwd()]):
+        return ["`claude` was found in the project or current folder, not on PATH: the plugin check was skipped. "
+                "Check the command path above before you approve."]
+    status = plugin_status(command[0])
+    if status == "enabled":
+        return []
+    if status == "missing":
+        return ["the `workshop` Claude Code plugin is not installed or not enabled: the session starts without the "
+                "shared agents and skills (setup: infra clients/claude-code-cli/README.md section 2)"]
+    return ["could not check the `workshop` Claude Code plugin (claude plugin list failed); shared agents and "
+            "skills may be missing"]
 
 
 def start_command(client, infra, message):
@@ -77,7 +135,8 @@ def handoff_steps(to_client, infra, project_root, package):
         return [
             "Open a new terminal (not an AI session) and run:",
             f'  cd "{project_root}"',
-            f'  claude --add-dir "{infra / "clients"}" "{message}"',
+            f'  claude "{message}"',
+            "(Shared agents and skills load from the workshop plugin.)",
             "The new session must use only the package for what happened before.",
         ]
     return [
