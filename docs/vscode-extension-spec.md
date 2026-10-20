@@ -1,12 +1,14 @@
 # Workshop AI — VS Code extension specification
 
-Status: proposed (2026-10-18). Written under infra `tasks/workshop-ai-vscode-extension-specification.md` (Gate A
+> **v2 note (2026-10-20):** paused and out of scope for the proposed Workshop AI v2 (`infra/docs/workshop-ai-v2/`, decision D-V2-03). Kept as a record; the `--json` output in `wai` stays because the v2 app uses it.
+
+Status: proposed (2026-10-18). Written under infra `tasks/projects/workshop-ai/workshop-ai-vscode-extension-specification.md` (Gate A
 passed 2026-10-18); security-reviewed and approved at its Gate B (2026-10-18; D7 decided, §8.9). Nothing here is
 built.
 
 Requirement ids (FR-xx, NFR-xx, §n) refer to the product vision v1.2 (infra `docs/workshop-ai-product-vision.md`).
 New ids `EXT-nn` are used only where no FR covers the need; each has an observable **Check**. Decisions D1–D11 are
-vision §17.10; open decisions R1–R8 are vision §17.11 (the only register; §11 here adds none).
+vision §17.10; open decisions R1–R12 are vision §17.11 (R10–R12 added 2026-10-20) (the only register; §11 here adds none).
 
 Evidence labels: **Observed** (seen on the maintainer's machine or in this repository's code), **Documented** (official
 docs, URL and date), **Verified** (read in the stable VS Code API typings `@types/vscode` 1.140.0, per infra

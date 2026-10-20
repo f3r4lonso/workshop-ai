@@ -1,0 +1,97 @@
+{
+  "name": "workshop-ai",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "0.1.0",
+  "publisher": "local",
+  "private": true,
+  "license": "UNLICENSED",
+  "engines": {
+    "vscode": "^1.140.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./out/extension.js",
+  "l10n": "./l10n",
+  "activationEvents": [],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false,
+      "description": "%untrusted%"
+    },
+    "virtualWorkspaces": false
+  },
+  "contributes": {
+    "commands": [
+      { "command": "workshopAi.refresh", "title": "%cmd.refresh%", "category": "Workshop AI", "icon": "$(refresh)" },
+      { "command": "workshopAi.confirmClients", "title": "%cmd.confirmClients%", "category": "Workshop AI", "icon": "$(settings-gear)" },
+      { "command": "workshopAi.locateWai", "title": "%cmd.locateWai%", "category": "Workshop AI" },
+      { "command": "workshopAi.initProject", "title": "%cmd.initProject%", "category": "Workshop AI" },
+      { "command": "workshopAi.newTask", "title": "%cmd.newTask%", "category": "Workshop AI", "icon": "$(add)" },
+      { "command": "workshopAi.openTask", "title": "%cmd.openTask%", "category": "Workshop AI" },
+      { "command": "workshopAi.addContext", "title": "%cmd.addContext%", "category": "Workshop AI" }
+    ],
+    "views": {
+      "explorer": [
+        { "id": "workshopAi.clients", "name": "%view.clients%" },
+        { "id": "workshopAi.tasks", "name": "%view.tasks%" }
+      ]
+    },
+    "viewsWelcome": [
+      { "view": "workshopAi.tasks", "contents": "%welcome.loading%", "when": "workshopAi.state == loading" },
+      { "view": "workshopAi.tasks", "contents": "%welcome.noWai%", "when": "workshopAi.state == noWai" },
+      { "view": "workshopAi.tasks", "contents": "%welcome.error%", "when": "workshopAi.state == error" },
+      { "view": "workshopAi.tasks", "contents": "%welcome.noFolder%", "when": "workshopAi.state == noFolder" },
+      { "view": "workshopAi.tasks", "contents": "%welcome.noProject%", "when": "workshopAi.state == noProject" },
+      { "view": "workshopAi.tasks", "contents": "%welcome.noTasks%", "when": "workshopAi.state == ready" }
+    ],
+    "menus": {
+      "view/title": [
+        { "command": "workshopAi.newTask", "when": "view == workshopAi.tasks && workshopAi.state == ready", "group": "navigation" },
+        { "command": "workshopAi.refresh", "when": "view == workshopAi.tasks || view == workshopAi.clients", "group": "navigation" },
+        { "command": "workshopAi.confirmClients", "when": "view == workshopAi.clients", "group": "navigation" }
+      ],
+      "explorer/context": [
+        { "command": "workshopAi.addContext", "when": "workshopAi.state == ready && !explorerResourceIsFolder", "group": "workshopAi" }
+      ],
+      "commandPalette": [
+        { "command": "workshopAi.openTask", "when": "false" },
+        { "command": "workshopAi.addContext", "when": "workshopAi.state == ready" },
+        { "command": "workshopAi.newTask", "when": "workshopAi.state == ready" },
+        { "command": "workshopAi.initProject", "when": "workshopAi.state == noProject" }
+      ]
+    },
+    "configuration": {
+      "title": "Workshop AI",
+      "properties": {
+        "workshopAi.waiPath": { "type": "string", "default": "", "scope": "machine", "description": "%cfg.waiPath%" },
+        "workshopAi.pythonPath": { "type": "string", "default": "", "scope": "machine", "description": "%cfg.pythonPath%" },
+        "workshopAi.infraPath": { "type": "string", "default": "", "scope": "machine", "description": "%cfg.infraPath%" },
+        "workshopAi.clients": {
+          "type": "array",
+          "default": [],
+          "scope": "machine",
+          "description": "%cfg.clients%",
+          "items": {
+            "type": "object",
+            "required": ["id"],
+            "properties": {
+              "id": { "type": "string", "enum": ["claude", "codex"] },
+              "path": { "type": "string" }
+            }
+          }
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "test": "tsc -p . && node --test \"out/test/*.test.js\""
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "@types/vscode": "1.140.0",
+    "typescript": "6.0.3"
+  }
+}
