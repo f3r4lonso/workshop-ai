@@ -1,5 +1,7 @@
 # Copilot CLI client and client console buttons — plan
 
+> **v2 note (2026-10-20):** Part A (Copilot as an engine) moves to the v2 engine registry (`infra/docs/workshop-ai-v2/engines.md`); the VS Code items of Part B are paused; B1 `wai console` is kept.
+
 Status: decisions taken by the product owner, 2026-10-18; Copilot CLI installed on the maintainer's machine
 (2026-10-18, sign-in by the user pending); nothing else here is built. Next: the user signs in (`copilot`, then
 `/login`); then part A step A1 (client guide), after E1 is committed. Spec:

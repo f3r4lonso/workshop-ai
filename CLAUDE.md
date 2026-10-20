@@ -2,5 +2,5 @@
 
 ## Claude Code only
 
-- Start Claude here with the shared agents and skills:
-  `claude --add-dir "$env:USERPROFILE\workshop\infra\clients"` (PowerShell).
+- The shared agents and skills load from the `workshop` plugin in every folder (names `workshop:<name>`); start
+  Claude here with plain `claude`, no `--add-dir`.

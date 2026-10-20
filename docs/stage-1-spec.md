@@ -179,7 +179,7 @@ Read-only parsing of the infra contracts, nothing copied:
 | clients | `clients/<client-id>/README.md` folders | id, title line |
 | agents | frontmatter of `agents/<area>/<name>.md` | area, name, description (first sentence), tools |
 | skills | frontmatter of `skills/<name>/SKILL.md` | name, description (first sentence) |
-| tasks | `tasks/*.md` except `README.md` | file, title, `Status:` line |
+| tasks | `tasks/projects/<project>/*.md` and `tasks/common/<category>/*.md` | file, title, `Status:` line |
 
 Missing or malformed entries are listed as warnings; the command still succeeds (exit 0) if at least one list was
 read. Evidence labels per client are not parsed in Stage 1 (FR-01 is P1).
@@ -188,7 +188,7 @@ read. Evidence labels per client are not parsed in Stage 1 (FR-01 is P1).
 
 | Client | What `wai start`/`resume` does | Status |
 |---|---|---|
-| claude | runs `claude --add-dir "<infra>\clients" "<first message>"` in the project folder, attached to the user's terminal | `claude "<query>"` starts an interactive session with a first message (Documented, to be Observed in Phase 5) |
+| claude | runs `claude "<first message>"` in the project folder, attached to the user's terminal; shared agents and skills come from the `workshop` plugin (2026-10-20: `--add-dir "<infra>\clients"` dropped, code change in v2 increment V1; `wai` warns, never blocks, when the plugin is missing) | `claude "<query>"` starts an interactive session with a first message (Documented, to be Observed in Phase 5) |
 | codex | handoff target only: `wai handoff show` prints the steps (once per machine: `python <infra>\scripts\codex-adapter.py link-skills --user`; then start `codex` in the project folder and paste *"Read `.workshop-ai/handoffs/<pkg-id>/handoff.md` and continue the task."*); the tool never launches Codex | Not run unless Gate C is approved |
 
 First message (identical for both): *"Read `.workshop-ai/tasks/<task-id>/brief.md` and follow it."*
@@ -228,7 +228,8 @@ Run by `wai handoff create` on every file of the package; any **block** stops th
    `gh[pousr]_…`; `xox[baprs]-…`; generic assignments `(api[_-]?key|secret|token|password)\s*[:=]\s*\S{12,}` — block.
 4. **Gitleaks:** if `gitleaks` is on PATH, `gitleaks dir <package> --config <infra>\.gitleaks.toml` — finding =
    block. If not installed, A2 additionally asks the user to type `reviewed` after reading the listed files, and the
-   manifest records `"gitleaks": "not installed", "manual_review": true`.
+   manifest records `"gitleaks": "not installed", "manual_review": true`. (2026-10-20: gitleaks is installed on the
+   owner's machine, so the `reviewed` prompt does not appear there.)
 5. **Personal paths:** case-insensitive `[a-z]:[\\/]users[\\/][^\\/]+`, `/Users/[^/]+`, `/home/[^/]+` — warn,
    shown at A2.
 
@@ -282,7 +283,7 @@ with a few unit tests and a sample file. It ships with one seeded defect (a head
 
 Each task runs twice from `pilot-base`, each run in its own git worktree
 (`git worktree add --detach ..\workshop-ai-sandbox-runs\<run> pilot-base`: a separate folder, no extra commits, kept
-until checked): **baseline** (plain `claude --add-dir …` session, the
+until checked): **baseline** (plain `claude` session, the
 user pastes the objective and criteria) and **with tool** (`wai` journey). Order alternates to spread learning
 effects: T1 baseline first, T2 tool first, T3 baseline first. In the T3 baseline, session 2 receives whatever the
 user chooses to paste from session 1. A run is **done** when every acceptance criterion is ticked or the user stops
@@ -344,7 +345,7 @@ Sandbox repository `%USERPROFILE%\workshop\applications\workshop-ai-sandbox\` (`
 Infrastructure repository (uncommitted):
 - new `docs/projects/workshop-ai/README.md` (entry page, covers the sandbox too) and a row in
   `docs/projects/README.md`;
-- `tasks/README.md` §2: `workshop/tasks/<file>.md` → `tasks/<file>.md`;
+- `tasks/README.md` §2: task paths are grouped under `tasks/projects/<project>/` or `tasks/common/<category>/`;
 - `docs/ai-infrastructure-handover.md`: dated note on the `workshop/infra` paths (record not rewritten);
 - `docs/ai-architecture.md` §10: replace "old copy … left untouched" with "no longer exists (checked
   2026-10-17)"; Codex row: "Codex CLI 0.163.0 found on PATH (Observed 2026-10-17, installed by the maintainer

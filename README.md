@@ -1,12 +1,18 @@
-# Workshop AI (Stage 1)
+# Workshop AI
 
-`wai` runs one task with one AI client and keeps the task's verified state in your project, so a new session can
-resume it and another client can take it over from a reviewed package. Specification: [docs/stage-1-spec.md](docs/stage-1-spec.md).
+Workshop AI v2 is one local app, in Spanish, over the `wai` core. Requirements: the infrastructure repository's
+`docs/workshop-ai-v2/`; progress: [docs/v2-progress.md](docs/v2-progress.md).
 
-**Next (Stage 2, specified, not built):** a Workshop AI VS Code extension becomes the main hub over `wai`: it detects
-your clients, sets up the shared infrastructure, opens and closes client sessions after your approval, and switches
-to the client you choose with a saved recap. `wai` stays Python standard library; the extension is TypeScript with no
-runtime packages, in `vscode-extension/`. Specification: [docs/vscode-extension-spec.md](docs/vscode-extension-spec.md).
+- **The app** (`server/` + `web/`, merged from the Workshop Infrastructure UI in increment V1): double-click
+  `INICIAR.cmd` → http://127.0.0.1:8770/. Seven sections: Inicio, Tareas, Conversar (agent chains), Agentes y Skills,
+  Archivos (with the Lector), Motores (every AI engine at its verified level) and Historial (arrives in V2). The first
+  start builds the interface (`npm install`, `npm run build` in `web\`; needs Node.js). Security model:
+  infra `docs/workshop-ai-v2/architecture.md` §7.
+- **`wai`** runs one task with one AI client and keeps the task's verified state in your project, so a new session
+  can resume it and another client can take it over from a reviewed package. Specification:
+  [docs/stage-1-spec.md](docs/stage-1-spec.md).
+- **Engine list:** `workshop_ai/engines.json`, read by both `wai` and the app.
+- The VS Code extension (`vscode-extension/`) is paused (decision D-V2-03).
 
 ## Use it
 
@@ -30,22 +36,9 @@ wai status
 Requires Python 3.10+ and Claude Code on PATH. The shared infrastructure is found at
 `%USERPROFILE%\workshop\infra`, or set `WORKSHOP_AI_INFRA`, or pass `--infra`.
 
-## Work in VS Code
-
-Open `workshop-ai.code-workspace` (File > Open Workspace from File). It shows this repository, the sandbox and the
-shared infrastructure side by side. Terminal > Run Task… then pick:
-
-- **Claude Code + Codex** — both clients in split terminals, started in this repository (Claude with the shared
-  agents and skills);
-- **Claude Code** or **Codex** — one client;
-- **Workshop AI terminal (wai)** — a PowerShell terminal with the `wai` alias, in the sandbox. Approvals work here:
-  it is a normal terminal, not an AI session.
-
-VS Code suggests the official Claude Code and Codex extensions (chat panels); they are optional and use the same
-sign-in as the command-line clients.
-
 ## Test
 
 ```powershell
-python -m unittest discover -s tests
+python -m unittest discover -s tests   # wai core and app server
+cd web; npm run build                    # interface
 ```

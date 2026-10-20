@@ -4,26 +4,30 @@ Shared rules for every AI client working in this repository (Codex reads this fi
 `CLAUDE.md`). The workspace rules in the shared infrastructure (`%USERPROFILE%\workshop\infra\AGENTS.md`) apply
 too; its security and privacy rules always win.
 
-- **Purpose:** Workshop AI: a local command-line tool (`wai`) that runs one task with one AI client, saves a verified
-  task state in the project's own repository, resumes it in a new session, and builds a manual handoff package for
-  another client (Stage 1, `docs/stage-1-spec.md`); and a VS Code extension that is the main hub over `wai`
-  (Stage 2, specified, not built: `docs/vscode-extension-spec.md`). Product vision: the infrastructure
-  repository's `docs/workshop-ai-product-vision.md`.
-- **Stage:** local POC.
+- **Purpose:** Workshop AI v2: one local, Spanish-language browser app over the `wai` core (decision D-V2-01,
+  approved 2026-10-20). `wai` stays a command-line tool that runs one task with one AI client, saves a verified
+  task state in the project's own repository, resumes it in a new session and builds a manual handoff package for
+  another client (`docs/stage-1-spec.md`). Requirements: the infrastructure repository's `docs/workshop-ai-v2/`;
+  progress: `docs/v2-progress.md`. The VS Code extension (`vscode-extension/`) is paused (D-V2-03): keep it as a
+  record, do not develop it.
+- **Stage:** local POC; v2 increment in progress per `docs/v2-progress.md`.
 - **Commands:** tests `python -m unittest discover -s tests`; run `python -m workshop_ai --help` or `wai.cmd`.
 - **Constraints:**
-  - `wai` is Python 3 standard library only. The extension (in `vscode-extension/`) is TypeScript on the VS Code
-    extension API with no runtime npm dependencies; each development package needs approval first.
-  - No daemon, service or network listener. The VS Code extension host and user-visible terminals do not count as
-    background processes.
-  - No network access, except an approved `git clone` and fast-forward `git pull` of the shared infrastructure
-    repository, run by the extension.
-  - The tool (`wai` or its extension) starts clients only as interactive sessions, after an approval, never
-    non-interactively (`claude -p`, `codex exec`); it launches Codex only once Codex is a supported executing client.
-    It never types input into a client terminal, never runs git commands that write to a project, and never touches
-    credentials or client session files.
-  - Every approval needs a person at a terminal; never add a flag that skips one. Any other approval path for the
-    extension needs a recorded decision (vision §17.11 R1). The extension never writes to a terminal where an
-    approval prompt is or may be shown.
+  - `wai` and the app server are Python 3 standard library only. Front-end and extension packages need approval
+    first (`dependency-license-review` skill).
+  - The only network listener allowed is the app's loopback server (D-V2-04), with at least the security model of
+    the Workshop Infrastructure UI server (v2 `architecture.md` §7); never weaken it. No other daemon or service.
+  - No network access from `wai` itself, except an approved `git clone` / fast-forward `git pull` of the shared
+    infrastructure repository.
+  - `wai` starts clients as interactive sessions after an approval. The app may run an engine non-interactively
+    (`claude -p`, `codex exec`, …) only when the owner starts that run, only at the engine's verified level in v2
+    `engines.md`, tool-free first, and only after the engine's provider-terms check (R7) is recorded in its client
+    guide (D-V2-05, D-V2-06). Nothing ever types input into a client terminal, runs git commands that write to a
+    project, or touches credentials or client session files.
+  - Every `wai` approval needs a person at a terminal; never add a flag that skips one. An in-app approval path
+    needs its own recorded decision that changes this rule and meets v2 `architecture.md` §8 C1.
+  - The app writes files only inside the allowlist of v2 `architecture.md` §4, keeping versions in
+    `%USERPROFILE%\workshop\.workshop-ai\` (D-V2-07). That folder is private local data: never copy it into a
+    repository.
   - Never write project state into the shared infrastructure repository.
 - The user is a trader: report outcomes, not code explanations; reply in English.
