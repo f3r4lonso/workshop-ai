@@ -14,7 +14,7 @@ export default function SearchBar({ value, onChange, onClear, onKeyDown, inputRe
           ref={inputRef}
           type="search"
           className="search-input"
-          placeholder="Buscar en todo… (Ctrl+F)"
+          placeholder="Buscar en todo… (Ctrl+K)"
           autoComplete="off"
           spellCheck="false"
           aria-describedby="search-help"

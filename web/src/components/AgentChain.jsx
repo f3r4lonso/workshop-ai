@@ -13,6 +13,7 @@ export default function AgentChain({ resources = [] }) {
   const [registry, setRegistry] = useState(null);
   const [registryError, setRegistryError] = useState('');
   const [goal, setGoal] = useState('');
+  const [clientId, setClientId] = useState('claude');
   const [model, setModel] = useState('');
   const [steps, setSteps] = useState([
     { key: 'step-1', agent: '', direction: '' },
@@ -25,7 +26,7 @@ export default function AgentChain({ resources = [] }) {
   const counter = useRef(3);
   const active = run && ['queued', 'running', 'stopping'].includes(run.status);
   const locked = Boolean(run);
-  const client = registry?.clients?.find((entry) => entry.id === 'claude');
+  const client = registry?.clients?.find((entry) => entry.id === clientId);
   const agents = (registry?.agents ?? []).map((agent) => ({
     ...agent,
     resource: resources.find((resource) => resource.id === agent.id),
@@ -98,6 +99,7 @@ export default function AgentChain({ resources = [] }) {
     try {
       const result = await interaction('chain-start', {
         goal,
+        client: clientId,
         model,
         steps: steps.map(({ agent, direction }) => ({ agent, direction })),
       });
@@ -156,7 +158,18 @@ export default function AgentChain({ resources = [] }) {
             onChange={(event) => setGoal(event.target.value)} placeholder="Describe el resultado que quieres obtener…" />
         </label>
 
-        <label className="interaction-field">Modelo de Claude
+        <label className="interaction-field">Cliente para todas las etapas
+          <select value={clientId} disabled={locked || restoring || !registry} onChange={(event) => {
+            const next = registry?.clients?.find((entry) => entry.id === event.target.value);
+            setClientId(event.target.value);
+            setModel(next?.models?.[0]?.id || '');
+          }}>
+            {(registry?.clients || []).map((entry) => <option key={entry.id} value={entry.id} disabled={!entry.available}>
+              {entry.name}{entry.available ? '' : ' · chat no verificado'}
+            </option>)}
+          </select>
+        </label>
+        <label className="interaction-field">Modelo
           <select value={model} disabled={locked || restoring || !client?.available} onChange={(event) => setModel(event.target.value)}>
             <option value="">Selecciona un modelo</option>
             {client?.models?.map((option) => <option key={option.id} value={option.id}>{option.label || option.id}</option>)}
@@ -164,7 +177,7 @@ export default function AgentChain({ resources = [] }) {
         </label>
         {registryError ? <p className="chain-error" role="alert">{registryError}</p> : null}
         {client ? <p className={client.available ? 'chain-availability' : 'chain-error'} role="status">
-          {client.available ? `Transporte de Claude ${client.version ? `v${client.version}` : ''} disponible; el acceso de cuenta no está comprobado.` : client.reason}
+          {client.available ? `Transporte de ${client.name} ${client.version ? `v${client.version}` : ''} disponible; el acceso de cuenta no está comprobado.` : client.reason}
         </p> : registryError ? null : <p role="status">Comprobando el transporte local…</p>}
       </div>
 

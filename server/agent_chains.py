@@ -76,8 +76,9 @@ def start(body, snapshot, find_executable):
         return dict(ok=False, message='Configuración de cadena no válida.')
     goal = body.get('goal')
     steps = body.get('steps')
+    client_id = body.get('client', 'claude')
     model = body.get('model')
-    if (not isinstance(goal, str) or not goal.strip() or _over_limit(goal, MAX_GOAL_BYTES)
+    if (client_id != 'claude' or not isinstance(goal, str) or not goal.strip() or _over_limit(goal, MAX_GOAL_BYTES)
             or model not in client_dispatch.MODELS or not isinstance(steps, list)
             or not MIN_STEPS <= len(steps) <= MAX_STEPS):
         return dict(ok=False, message='Indica un objetivo y entre 2 y 5 agentes con un modelo disponible.')

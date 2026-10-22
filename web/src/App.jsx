@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { getData, launchClient, openItem, refreshData } from './api.js';
-import { CONVERSE, ENGINES, HISTORY, HOME, MESSAGES, NAV, SECTION_INTROS, TASK_FILTERS, isActiveTask, navEntry } from './constants.js';
+import { getClients, getData, interaction, launchClient, openItem, refreshData } from './api.js';
+import { CONVERSE, ENGINES, HISTORY, HOOKS, HOME, MESSAGES, NAV, SECTION_INTROS, TASK_FILTERS, isActiveTask, navEntry } from './constants.js';
 import { filterItems } from './search.js';
 import { buildView, warningItems } from './view.js';
 import Sidebar from './components/Sidebar.jsx';
@@ -11,6 +11,11 @@ import ResourceList from './components/ResourceList.jsx';
 import DetailPanel from './components/DetailPanel.jsx';
 import EnginesPage from './components/EnginesPage.jsx';
 import AgentChain from './components/AgentChain.jsx';
+import AgentChat from './components/AgentChat.jsx';
+import HooksPage from './components/HooksPage.jsx';
+import ResourceDiscovery from './components/ResourceDiscovery.jsx';
+import ResourceAuthoring from './components/ResourceAuthoring.jsx';
+import GlobalSearchResults from './components/GlobalSearchResults.jsx';
 import { AlertIcon } from './components/Icons.jsx';
 
 const SEARCH_DEBOUNCE_MS = 150;
@@ -36,15 +41,44 @@ const listSkeleton = (
 
 export default function App() {
   const [data, setData] = useState(null);
+  const [clients, setClients] = useState([]);
+  const [clientsLoading, setClientsLoading] = useState(true);
+  const [clientsError, setClientsError] = useState('');
   const [loadError, setLoadError] = useState(null);
   const [section, setSection] = useState(HOME);
   const [query, setQuery] = useState('');
   const [activeQuery, setActiveQuery] = useState('');
+  const [globalSearch, setGlobalSearch] = useState({ status: 'idle', results: [], skipped: 0, partial: false });
+  const [pendingConversationId, setPendingConversationId] = useState('');
+  const [pendingVersionId, setPendingVersionId] = useState('');
   const [taskFilter, setTaskFilter] = useState('active');
   const [facetsBySection, setFacetsBySection] = useState({});
   const [collapsedGroups, setCollapsedGroups] = useState({});
   const navigationState = useRef(new Map());
   const [selectedKey, setSelectedKey] = useState(null);
+  const [openedItem, setOpenedItem] = useState(null);
+  const [newDocumentItem, setNewDocumentItem] = useState(null);
+  const [drafts, setDrafts] = useState({});
+  const [editorVisible, setEditorVisible] = useState(false);
+  const [editorWidth, setEditorWidth] = useState(58);
+  const draftsRef = useRef(drafts);
+  draftsRef.current = drafts;
+  const updateDraft = useCallback((id, next) => setDrafts(previous => ({ ...previous, [id]:
+    typeof next === 'function' ? next(previous[id]) : next })), []);
+  const guardTransition = useCallback(() => {
+    const active = openedItem && draftsRef.current[openedItem.id];
+    if (active?.saving) { notify('Espera a que termine el guardado.', 'info'); return false; }
+    return !active?.dirty || window.confirm('Hay cambios sin guardar. ¿Cambiar de vista conservando el borrador en esta sesión?');
+  }, [openedItem]);
+  useEffect(() => {
+    const unload = event => {
+      if (Object.values(draftsRef.current).some(draft => draft?.dirty || draft?.saving)) {
+        event.preventDefault(); event.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', unload);
+    return () => window.removeEventListener('beforeunload', unload);
+  }, []);
   const [refreshing, setRefreshing] = useState(false);
   const [launchState, setLaunchState] = useState({});
   const [toast, setToast] = useState(null);
@@ -53,6 +87,7 @@ export default function App() {
   const listRef = useRef(null);
   const detailRef = useRef(null);
   const launchTimers = useRef(new Map());
+  const newDraftCounter = useRef(1);
 
   const notify = useCallback((message, tone = 'info') => {
     setToast({ message, tone, id: Date.now() });
@@ -69,6 +104,23 @@ export default function App() {
       cancelled = true;
     };
   }, [attempt]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getClients().then(
+      (result) => {
+        if (cancelled) return;
+        setClients(result);
+        setClientsError('');
+      },
+      (error) => {
+        if (!cancelled) setClientsError(error.message);
+      },
+    ).finally(() => {
+      if (!cancelled) setClientsLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     const timers = launchTimers.current;
@@ -88,6 +140,28 @@ export default function App() {
     const timer = setTimeout(() => setActiveQuery(trimmedQuery), SEARCH_DEBOUNCE_MS);
     return () => clearTimeout(timer);
   }, [trimmedQuery, activeQuery]);
+
+  useEffect(() => {
+    if (!activeQuery) {
+      setGlobalSearch({ status: 'idle', results: [], skipped: 0, partial: false });
+      return undefined;
+    }
+    let cancelled = false;
+    setGlobalSearch({ status: 'loading', results: [], skipped: 0, partial: false });
+    const timer = setTimeout(async () => {
+      try {
+        const result = await interaction('global-search', { query: activeQuery });
+        if (!result.ok) throw new Error(result.message || 'No se pudo completar la búsqueda.');
+        if (!Array.isArray(result.results)) throw new Error('El servidor devolvió resultados no válidos.');
+        if (!cancelled) setGlobalSearch({ status: 'ready', results: result.results,
+          skipped: result.skipped || 0, partial: Boolean(result.partial) });
+      } catch (error) {
+        if (!cancelled) setGlobalSearch({ status: 'error', results: [], skipped: 0,
+          partial: false, message: error.message || 'No se pudo completar la búsqueda.' });
+      }
+    }, 250);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [activeQuery]);
 
   const items = data?.items;
   const warnings = useMemo(() => warningItems(data?.warnings), [data]);
@@ -116,6 +190,8 @@ export default function App() {
   );
 
   const facets = facetsBySection[section] ?? EMPTY_FACETS;
+  const activeFilterCount = Object.values(facets).filter(Boolean).length
+    + (section === 'Tareas' && taskFilter !== 'active' ? 1 : 0);
   const facetDefinitions = useMemo(() => {
     const entries = baseView?.groups.flatMap((group) => group.entries) ?? [];
     const definitions = [
@@ -146,7 +222,7 @@ export default function App() {
     };
   }, [baseView, facets, facetDefinitions]);
 
-  const selectedItem = view?.keys.get(selectedKey) ?? null;
+  const selectedItem = openedItem;
 
   const focusSearch = useCallback((select = false) => {
     const input = searchRef.current;
@@ -167,18 +243,22 @@ export default function App() {
   }, []);
 
   const navigate = useCallback((name) => {
+    if (!guardTransition()) return;
     navigationState.current.set(section, { query, activeQuery });
     const saved = navigationState.current.get(name);
     setSection(name);
     setQuery(saved?.query ?? '');
     setActiveQuery(saved?.activeQuery ?? '');
     setSelectedKey(null);
-  }, [section, query, activeQuery]);
+    setOpenedItem(null);
+    setPendingVersionId('');
+    setEditorVisible(false);
+  }, [section, query, activeQuery, guardTransition]);
 
   function focusFirstResult() {
     // Apply a pending (debounced) query first so the list reflects what was typed.
     if (trimmedQuery !== activeQuery) flushSync(() => setActiveQuery(trimmedQuery));
-    const first = listRef.current?.querySelector('[role="option"]');
+    const first = document.querySelector('.global-search-result') ?? listRef.current?.querySelector('[role="option"]');
     first?.focus();
   }
 
@@ -194,7 +274,7 @@ export default function App() {
 
   // Global shortcuts: Ctrl+F or "/" focus search, Esc clears it. F5 is left to the browser.
   const onGlobalKeyDown = useEffectEvent((event) => {
-    if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'f') {
+    if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === 'k') {
       event.preventDefault();
       focusSearch(true);
     } else if (event.key === '/' && !event.ctrlKey && !event.metaKey && !event.altKey && !isEditable(event.target)) {
@@ -223,6 +303,54 @@ export default function App() {
     [notify],
   );
 
+  const startNewDocument = useCallback(() => {
+    if (newDocumentItem && draftsRef.current[newDocumentItem.id]?.dirty) {
+      notify('Guarda o descarta el borrador actual antes de empezar otro.');
+      return;
+    }
+    if (!guardTransition()) return;
+    if (newDocumentItem) setDrafts(previous => {
+      const next = { ...previous };
+      delete next[newDocumentItem.id];
+      return next;
+    });
+    const id = `__new_document_${newDraftCounter.current++}`;
+    const item = { id, title: 'Documento sin título', relativePath: 'Borrador sin guardar', isNew: true, canOpenDocument: true };
+    setNewDocumentItem(item);
+    setOpenedItem(item);
+    setDrafts((previous) => ({ ...previous, [id]: {
+      text: '', original: '', base_sha256: null,
+      meta: { editable: true, can_edit: true, header: { safe: true, fields: {}, editable_fields: [], raw_header: '' } },
+      dirty: false, reviewed: false, saving: false, status: 'Borrador nuevo', scroll: 0,
+    } }));
+    setSelectedKey(null);
+    setEditorVisible(true);
+  }, [guardTransition, newDocumentItem, notify]);
+
+  const resumeNewDocument = useCallback(() => {
+    if (!newDocumentItem || !guardTransition()) return;
+    setOpenedItem(newDocumentItem);
+    setSection(HOME);
+    setQuery('');
+    setActiveQuery('');
+    setSelectedKey(null);
+    setEditorVisible(true);
+  }, [guardTransition, newDocumentItem]);
+
+  const discardNewDocument = useCallback((id) => {
+    if (newDocumentItem?.id !== id) return;
+    setDrafts(previous => {
+      const next = { ...previous };
+      delete next[id];
+      return next;
+    });
+    setNewDocumentItem(null);
+    if (openedItem?.id === id) {
+      setOpenedItem(null);
+      setEditorVisible(false);
+    }
+  }, [newDocumentItem, openedItem]);
+
   const handleOpenKey = useCallback(
     (key) => {
       const item = view?.keys.get(key);
@@ -232,6 +360,44 @@ export default function App() {
     },
     [view, handleOpen, notify],
   );
+
+  const handleOpenGlobalResult = useCallback((result) => {
+    if (!guardTransition()) return;
+    if (result.kind === 'conversation') {
+      setQuery('');
+      setActiveQuery('');
+      setPendingVersionId('');
+      setSection(CONVERSE);
+      setPendingConversationId(result.conversation_id);
+      setOpenedItem(null);
+      setSelectedKey(null);
+      setEditorVisible(false);
+      return;
+    }
+    const item = data?.items.find((candidate) => candidate.id === result.item_id);
+    if (!item) {
+      notify('El recurso ya no está en el catálogo. Pulsa «Actualizar» y repite la búsqueda.', 'error');
+      return;
+    }
+    if (!item.canOpenDocument) {
+      notify('Este resultado no tiene un documento que abrir.', 'info');
+      return;
+    }
+    if (result.kind === 'version' && !result.version_id) {
+      notify('La versión ya no está disponible.', 'error');
+      return;
+    }
+    setQuery('');
+    setActiveQuery('');
+    setSection(HOME);
+    setOpenedItem(item);
+    setPendingVersionId(result.kind === 'version' ? result.version_id : '');
+    setSelectedKey(null);
+    setEditorVisible(true);
+  }, [data, guardTransition, notify]);
+
+  const clearPendingConversation = useCallback(() => setPendingConversationId(''), []);
+  const clearPendingVersion = useCallback(() => setPendingVersionId(''), []);
 
   const setClientState = useCallback((id, state) => {
     clearTimeout(launchTimers.current.get(id));
@@ -279,18 +445,27 @@ export default function App() {
 
   // Stacked layout only: bring the detail panel (below the list) into view after a click or Enter.
   const activateKey = useCallback((key) => {
+    if (!guardTransition()) return;
+    const item = view?.keys.get(key);
+    if (!item) return;
+    setPendingVersionId('');
+    setOpenedItem(item);
+    setEditorVisible(true);
     setSelectedKey(key);
     if (!window.matchMedia(STACKED_QUERY).matches) return;
     requestAnimationFrame(() => {
       const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       detailRef.current?.scrollIntoView({ block: 'start', behavior: reduce ? 'auto' : 'smooth' });
     });
-  }, []);
+  }, [view, guardTransition]);
 
   const backToList = useCallback(() => {
+    setEditorVisible(false);
+    requestAnimationFrame(() => {
     const options = listRef.current?.querySelectorAll('[role="option"]') ?? [];
     const row = [...options].find((option) => option.dataset.key === selectedKey) ?? options[0];
     row?.focus();
+    });
   }, [selectedKey]);
 
   async function handleRefresh() {
@@ -340,6 +515,18 @@ export default function App() {
         <div className="workspace">{listSkeleton}</div>
       </div>
     );
+  } else if (activeQuery) {
+    content = (
+      <section className="global-search-page" aria-labelledby="global-search-page-title">
+        <div className="page-head">
+          <div>
+            <h1 id="global-search-page-title" className="page-title">Resultados de búsqueda</h1>
+            <p className="page-intro">Buscando «{activeQuery}» en contenido actual, conversaciones y versiones.</p>
+          </div>
+        </div>
+        <GlobalSearchResults query={activeQuery} state={globalSearch} onOpen={handleOpenGlobalResult} />
+      </section>
+    );
   } else if (page) {
     content = (
       <>
@@ -352,13 +539,17 @@ export default function App() {
         {page === ENGINES ? (
           <EnginesPage onLaunch={handleLaunch} onOpenGuide={handleOpenGuide} launchState={launchState} />
         ) : page === CONVERSE ? (
-          <section className="converse" aria-label="Cadena de agentes">
+          <section className="converse" aria-label="Conversaciones y cadena de agentes">
+            <AgentChat resources={items ?? []} requestedConversationId={pendingConversationId}
+              onRequestedConversationOpened={clearPendingConversation} />
             <AgentChain resources={items ?? []} />
           </section>
+        ) : page === HOOKS ? (
+          <HooksPage />
         ) : page === HISTORY ? (
           <p className="placeholder-note">
-            Llega en el siguiente paso (V2): aquí verás cada archivo guardado desde la aplicación, sus versiones
-            anteriores para restaurarlas y las ejecuciones de los motores.
+            Para consultar o restaurar archivos, abre un documento y pulsa «Versiones».
+            El historial de conversaciones y ejecuciones llegará en una fase posterior.
           </p>
         ) : null}
       </>
@@ -371,21 +562,22 @@ export default function App() {
             <h1 className="page-title">{view.title}</h1>
             <p className="page-intro">{view.intro}</p>
           </div>
-          {showTaskFilter ? (
-            <div className="filter">
-              <label htmlFor="task-filter">Estado</label>
-              <select id="task-filter" value={taskFilter} onChange={(event) => setTaskFilter(event.target.value)}>
-                {TASK_FILTERS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : null}
+          <button type="button" className="button button--primary" onClick={startNewDocument}>Nuevo documento en blanco</button>
         </div>
 
         <div className="resource-filters" role="region" aria-label="Filtros de recursos">
+          <div className="filter-toolbar-heading">
+            <strong>Filtrar recursos</strong>
+            <span>{view.countText}</span>
+          </div>
+          {showTaskFilter ? (
+            <div className="filter">
+              <label htmlFor="task-filter">Estado de tarea</label>
+              <select id="task-filter" value={taskFilter} onChange={(event) => setTaskFilter(event.target.value)}>
+                {TASK_FILTERS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+            </div>
+          ) : null}
           {facetDefinitions.map((definition) => (
             <div className="filter" key={definition.key}>
               <label htmlFor={`facet-${definition.key}`}>{definition.label}</label>
@@ -400,19 +592,22 @@ export default function App() {
               </select>
             </div>
           ))}
-          <button type="button" className="button" onClick={() => {
+          <button type="button" className="button filter-reset" disabled={!activeFilterCount} onClick={() => {
             setFacetsBySection((previous) => ({ ...previous, [section]: {} }));
-            setTaskFilter('all');
-            clearSearch();
-          }}>Restablecer filtros</button>
-          <p className="page-intro">{view.countText}</p>
+            setTaskFilter('active');
+          }}>Borrar filtros{activeFilterCount ? ` (${activeFilterCount})` : ''}</button>
         </div>
+
+        {section === 'Agentes y Skills' ? <>
+          <ResourceDiscovery />
+          <ResourceAuthoring onRegistered={handleRefresh} />
+        </> : null}
 
         {showTiles ? (
           <HomeTiles counts={counts} activeTasks={activeTasks} onNavigate={navigate} />
         ) : null}
 
-        <div className="workspace">
+        <div className={`workspace editor-workspace${editorVisible ? ' editor-workspace--open' : ''}`} style={{ '--editor-width': `${editorWidth}%` }}>
           <ResourceList
             groups={view.groups}
             selectedKey={selectedKey}
@@ -427,7 +622,26 @@ export default function App() {
             collapsedGroups={collapsedGroups}
             onToggleGroup={(key) => setCollapsedGroups((previous) => ({ ...previous, [key]: !previous[key] }))}
           />
-          <DetailPanel item={selectedItem} panelRef={detailRef} onBackToList={backToList} />
+          <div className="editor-divider" role="separator" aria-label="Anchura del editor" aria-orientation="vertical"
+            tabIndex={0} aria-valuemin={45} aria-valuemax={75} aria-valuenow={editorWidth}
+            onKeyDown={event => { if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) {
+              event.preventDefault(); setEditorWidth(width => event.key === 'Home' ? 45 : event.key === 'End' ? 75 : Math.min(75, Math.max(45, width + (event.key === 'ArrowLeft' ? 2 : -2))));
+            } }} onPointerDown={event => {
+              event.currentTarget.setPointerCapture(event.pointerId);
+            }} onPointerMove={event => { if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+              const bounds = event.currentTarget.parentElement.getBoundingClientRect();
+              setEditorWidth(Math.min(75, Math.max(45, 100 * (bounds.right - event.clientX) / bounds.width)));
+            } }} onPointerUp={event => event.currentTarget.releasePointerCapture(event.pointerId)} />
+          <DetailPanel item={selectedItem} panelRef={detailRef} onBackToList={backToList}
+            draft={drafts[selectedItem?.id]} onDraft={updateDraft} onDiscard={discardNewDocument} onCreated={(item, draftId) => {
+              setDrafts(previous => {
+                const next = { ...previous };
+                if (draftId) delete next[draftId];
+                return next;
+              });
+              if (draftId && newDocumentItem?.id === draftId) setNewDocumentItem(null);
+              setOpenedItem(item); setEditorVisible(true); handleRefresh();
+            }} initialVersionId={pendingVersionId} onVersionOpened={clearPendingVersion} />
         </div>
       </>
     );
@@ -444,6 +658,23 @@ export default function App() {
         onNavigate={navigate}
         workshopRoot={data?.workshopRoot}
         loading={loading}
+        clients={clients}
+        clientsLoading={clientsLoading}
+        clientsError={clientsError}
+        launchState={launchState}
+        onLaunch={handleLaunch}
+        draftItem={newDocumentItem}
+        onResumeDraft={resumeNewDocument}
+        onShortcut={async action => { try {
+          const result = await interaction(action);
+          notify(result.message || (result.ok ? 'Solicitud completada.' : 'No se pudo completar.'), result.ok ? 'info' : 'error');
+        } catch (error) { notify(error.message, 'error'); } }}
+        onEditNotes={() => {
+          if (!guardTransition()) return;
+          setSection(HOME); setQuery(''); setActiveQuery(''); setSelectedKey(null);
+          setOpenedItem({ id: '__private_notes__', title: 'Mis notas', relativePath: 'infra/docs/notes/my-notes.txt', privateNotes: true, canOpenDocument: true });
+          setEditorVisible(true);
+        }}
       />
       <main id="main" className="main" tabIndex={-1}>
         <SearchBar
@@ -463,7 +694,7 @@ export default function App() {
           <span role="status" aria-live="polite">
             {page ? '' : view ? (view.groups.length ? view.countText : '') : loading ? 'Cargando recursos…' : ''}
           </span>
-          {!page && view && !view.groups.length ? <span>{view.countText}</span> : null}
+          {!page && !activeQuery && view && !view.groups.length ? <span>{view.countText}</span> : null}
         </footer>
       </main>
       <div className="toast-region" role="status" aria-live="polite" aria-atomic="true">

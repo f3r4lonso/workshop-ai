@@ -16,7 +16,7 @@ function RowDetail({ item, variant, showArea }) {
 }
 
 /**
- * Grouped listbox. Options use a roving tabindex; selection follows focus.
+ * Grouped listbox. Options use a roving tabindex; focus and opening a document are independent.
  * Keyboard: Up/Down/Home/End move, Enter opens the document, Up on the first row returns to search.
  */
 function ResourceList(props) {
@@ -63,6 +63,7 @@ function Listbox({ groups, selectedKey, showType, label, listRef, onSelect, onAc
       case 'End':
         target = options[options.length - 1];
         break;
+      case ' ':
       case 'Enter':
         event.preventDefault();
         onActivate(options[index].dataset.key);
@@ -85,7 +86,6 @@ function Listbox({ groups, selectedKey, showType, label, listRef, onSelect, onAc
         aria-selected={selected}
         tabIndex={entry.key === tabKey ? 0 : -1}
         className={`row${item.isWarning ? ' row--warning' : ''}`}
-        onFocus={() => onSelect(entry.key)}
         onClick={() => onActivate(entry.key)}
         onDoubleClick={() => onOpen(entry.key)}
       >

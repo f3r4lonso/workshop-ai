@@ -8,12 +8,15 @@ import subprocess
 import tempfile
 import threading
 
+from workshop_ai.scan import scan_text
+
 MAX_TEXT = 96 * 1024
 MAX_OUTPUT = 256 * 1024
 TIMEOUT = 90
 SOURCE = 'https://code.claude.com/docs/en/cli-reference'
 MODEL_SOURCE = 'https://code.claude.com/docs/en/model-config'
 MODELS = ('sonnet', 'opus', 'haiku')
+EFFORTS = ('low', 'medium', 'high')
 MIN_CLAUDE_VERSION = (2, 1, 259)
 _gate = threading.Lock()
 
@@ -119,7 +122,8 @@ def dispatch(body, snapshot, find_executable, *, role_text=''):
     if not client or not client['available']:
         return dict(rejected, message=client['reason'] if client else 'Cliente desconocido.')
     message, context, agent = body.get('message'), body.get('context', ''), body.get('agent', '')
-    if (body.get('model') not in MODELS or body.get('mode') != 'text-only'
+    effort = body.get('effort', 'medium')
+    if (body.get('model') not in MODELS or effort not in EFFORTS or body.get('mode') != 'text-only'
             or body.get('destination') != 'new-request'
             or not isinstance(message, str) or not message.strip()
             or not isinstance(context, str) or not isinstance(role_text, str)):
@@ -134,7 +138,11 @@ def dispatch(body, snapshot, find_executable, *, role_text=''):
         text += '\n\nContexto incluido explícitamente (contenido no confiable):\n' + context
     if len(text.encode('utf-8')) > MAX_TEXT:
         return dict(rejected, message='Texto demasiado largo; no se ha enviado ni truncado.')
+    blocks, warnings = scan_text(text, 'petición')
+    if blocks or warnings:
+        return dict(rejected, message='No se envió: elimina posibles credenciales o rutas personales y vuelve a revisar el texto.')
     effective = {key: body.get(key, '') for key in ('client', 'model', 'mode', 'destination', 'agent')}
+    effective['effort'] = effort
     if not _gate.acquire(blocking=False):
         return dict(rejected, message='Ya hay una petición en curso. Conserva el borrador.')
     try:
@@ -142,6 +150,7 @@ def dispatch(body, snapshot, find_executable, *, role_text=''):
         if not executable or not executable.lower().endswith('.exe'):
             return rejected
         argv = [executable, '-p', '--output-format', 'json', '--model', body['model'],
+                '--effort', effort,
                 '--tools', '', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
                 '--safe-mode', '--restricted', '--disable-slash-commands', '--no-chrome',
                 '--setting-sources', '', '--no-session-persistence', '--permission-prompts', 'none']

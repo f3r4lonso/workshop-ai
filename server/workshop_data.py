@@ -115,6 +115,8 @@ def is_excluded_path(path: str) -> bool:
     if not path:
         return True
     path = _windows_path(path)
+    if path.lower().endswith('\\infra\\docs\\notes\\my-notes.txt'):
+        return True
     if EXCLUDED_FOLDER_RE.search(path):
         return True
     return bool(EXCLUDED_NAME_RE.match(ntpath_basename(path)))
@@ -539,16 +541,17 @@ def get_document_area(relative_path: str) -> str:
 def get_document_resources(infra_root: str, workshop_root: str, context_text: str,
                            warnings: list[str]) -> list[Resource]:
     files: list[str] = []
-    context_file = os.path.join(workshop_root, "WORKSHOP-CONTEXT.md")
-    if os.path.isfile(context_file):
-        files.append(context_file)
+    for name in ('WORKSHOP-CONTEXT.md', 'INDEX.md'):
+        context_file = os.path.join(workshop_root, name)
+        if os.path.isfile(context_file):
+            files.append(context_file)
     for name in ("README.md", "SECURITY.md"):
         path = os.path.join(infra_root, name)
         if os.path.isfile(path):
             files.append(path)
     docs_folder = os.path.join(infra_root, "docs")
     if os.path.isdir(docs_folder):
-        files.extend(list_files(docs_folder, recurse=True))
+        files.extend(list_files(docs_folder, suffix=('.md', '.txt'), recurse=True))
         if context_text:
             lowered = context_text.lower()
             for file in list_files(docs_folder):
@@ -559,7 +562,13 @@ def get_document_resources(infra_root: str, workshop_root: str, context_text: st
     for app in list_dirs(applications):
         app_docs = os.path.join(app.path, "docs")
         if os.path.isdir(app_docs):
-            files.extend(list_files(app_docs))
+            files.extend(list_files(app_docs, suffix=('.md', '.txt'), recurse=True))
+        readme = os.path.join(app.path, 'README.md')
+        if os.path.isfile(readme):
+            files.append(readme)
+    music = os.path.join(workshop_root, 'projects', 'music')
+    if os.path.isdir(music):
+        files.extend(list_files(music, recurse=True))
 
     items: list[Resource] = []
     for path in files:

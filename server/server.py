@@ -26,13 +26,16 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any
 from urllib.parse import unquote, urlsplit
 
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+SERVER_DIR = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, SERVER_DIR)
+sys.path.insert(0, APP_DIR)
 import workshop_data  # noqa: E402
 import resource_interaction  # noqa: E402
 import agent_chains  # noqa: E402
 import engine_registry  # noqa: E402
+import desktop_actions  # noqa: E402
 
-APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DEFAULT_INFRA = os.path.normpath(os.path.join(APP_DIR, "..", "..", "infra"))
 DEFAULT_DIST = os.path.join(APP_DIR, "web", "dist")
 HOST = "127.0.0.1"
@@ -388,13 +391,20 @@ class WorkshopHandler(BaseHTTPRequestHandler):
                 self._error(HTTPStatus.FORBIDDEN, MSG_FORBIDDEN)
                 return
             action = path.removeprefix('/api/interaction/')
-            if action.startswith('chain-'):
+            if action in ('open-workshop', 'notes-open', 'notes-document', 'notes-save',
+                          'notes-versions', 'notes-version', 'notes-restore'):
+                payload = desktop_actions.handle(action, self.state.current(), body, find_executable)
+            elif action.startswith('chain-'):
                 payload = agent_chains.handle(action, body, self.state.current(), find_executable)
             else:
                 payload = resource_interaction.handle(action, self.state.current(), body, find_executable)
-            if action == 'save' and payload.get('ok'):
-                self.state.load()
-            self._json(HTTPStatus.OK, payload)
+            if action in ('save', 'restore', 'create', 'resource-registration-save') and payload.get('ok'):
+                try:
+                    self.state.load()
+                except OSError:
+                    payload['refreshRequired'] = True
+                    payload['message'] = payload.get('message', '') + ' Actualiza el catálogo cuando la carpeta vuelva a estar disponible.'
+            self._json(HTTPStatus.CONFLICT if payload.get('code') == 'conflict' else HTTPStatus.OK, payload)
         else:
             self._error(HTTPStatus.NOT_FOUND, MSG_NOT_FOUND)
 

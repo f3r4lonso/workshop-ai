@@ -54,6 +54,13 @@ class ResourceInteractionTests(unittest.TestCase):
                 resources.save(self.snapshot, dict(path=relative, version=resources.version(b'Original'), text='Draft'))
             self.assertEqual(path.read_text(), 'Original')
 
+    def test_resource_registration_actions_are_dispatched_to_the_registration_module(self):
+        expected = {'ok': True, 'preview_id': 'a' * 32}
+        with patch('resource_registration.handle', return_value=expected) as handler:
+            result = resources.handle('resource-registration-preview', self.snapshot, {'kind': 'skill'}, None)
+        self.assertEqual(result, expected)
+        handler.assert_called_once_with('resource-registration-preview', self.snapshot, {'kind': 'skill'})
+
     def test_symlink_rejected(self):
         link = self.root / 'infra/docs/link.md'
         try:
@@ -72,6 +79,9 @@ class ResourceInteractionTests(unittest.TestCase):
             resources.document(self.snapshot, {'id': 'sample'})
 
     def test_shared_identity_protected_and_regeneration(self):
+        adapter = self.root / 'infra/scripts/codex-adapter.py'
+        adapter.parent.mkdir(parents=True)
+        adapter.write_text('# fixture adapter', encoding='utf-8')
         relative = 'infra/agents/quality/sample.md'
         path = self.root / relative
         path.parent.mkdir(parents=True)
@@ -85,7 +95,7 @@ class ResourceInteractionTests(unittest.TestCase):
         with patch.object(resources.subprocess, 'run') as run:
             result = resources.save(self.snapshot, dict(path=relative, version=loaded['version'], text=old.replace('Original body', 'New body')))
             self.assertTrue(result['ok'])
-            self.assertEqual(run.call_args.args[0][-1], 'agents')
+            self.assertEqual([call.args[0][-2:] for call in run.call_args_list][-1], ['agents', '--check'])
 
     def test_reader_markdown_and_spanish_skip(self):
         result = resources.read_document(self.snapshot, {'id': 'sample'})

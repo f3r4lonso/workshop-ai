@@ -59,6 +59,15 @@ app's own server remains loopback-only. Conversations, notes, settings and docum
 
 ## Use it
 
+The browser's selected-document editor provides Editar, Vista previa, Revisar cambios and Versiones. Review
+before saving; restore keeps a recovery version. Supported headers have a form; advanced editing preserves
+unknown fields. New documents use fixed templates. Drafts survive in-app navigation during the current session;
+the page warns before closing with unsaved work. They are not promised to survive a browser restart.
+
+Mis notas opens a fixed private TXT in Windows Notepad or in the editor; it is excluded from automatic AI
+context and publication. Abrir Workshop opens the running workspace folder. Notes are created on first use,
+and external Notepad saves are outside the app's version pipeline. V2 is built locally; owner acceptance is pending.
+
 PowerShell, in a normal terminal (approvals do not work from inside an AI session):
 
 ```powershell
@@ -86,6 +95,7 @@ python -m unittest discover -s tests   # wai core and app server
 Push-Location web
 npm.cmd ci
 npm.cmd run build
+node --test src/editor-state.test.js  # focused editor logic
 Pop-Location
 ```
 

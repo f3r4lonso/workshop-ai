@@ -10,7 +10,7 @@ too; its security and privacy rules always win.
   another client (`docs/stage-1-spec.md`). Requirements: the infrastructure repository's `docs/workshop-ai-v2/`;
   progress: `docs/v2-progress.md`. The VS Code extension (`vscode-extension/`) is paused (D-V2-03): keep it as a
   record, do not develop it.
-- **Stage:** local POC; v2 increment in progress per `docs/v2-progress.md`.
+- **Stage:** local POC; V3 increment in progress per `docs/v2-progress.md`. V1 is paused by the owner; V2 is owner-accepted.
 - **Commands:** tests `python -m unittest discover -s tests`; run `python -m workshop_ai --help` or `wai.cmd`.
 - **Constraints:**
   - `wai` and the app server are Python 3 standard library only. Front-end and extension packages need approval

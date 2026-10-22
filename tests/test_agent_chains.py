@@ -61,6 +61,10 @@ class AgentChainTests(unittest.TestCase):
         self.assertFalse(chains.start(self.body([self.ids[0]]), self.snapshot, self.find)['ok'])
         self.assertFalse(chains.start(self.body([self.ids[0], self.ids[0]]), self.snapshot, self.find)['ok'])
         self.assertFalse(chains.start(self.body([self.ids[0], 'agents:unknown']), self.snapshot, self.find)['ok'])
+        unverified = self.body()
+        unverified['client'] = 'copilot'
+        self.assertFalse(chains.start(unverified, self.snapshot, self.find)['ok'])
+        self.assertIsNone(chains.current()['run'])
 
     @patch.object(chains.resource_interaction, 'document', side_effect=lambda snapshot, body: {
         'ok': True, 'text': f"Profile for {body['id']}"})

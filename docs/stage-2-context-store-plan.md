@@ -1,8 +1,10 @@
 # Stage 2 context store and context optimization — plan (token-optimization task)
 
-> **v2 note (2026-10-20):** folded into increment V7 of the proposed Workshop AI v2 (`infra/docs/workshop-ai-v2/roadmap.md`). Still a draft awaiting approval.
+> **v2 note (2026-10-22):** folded into increment V7 of Workshop AI v2 (`infra/docs/workshop-ai-v2/roadmap.md`).
+> The owner authorized starting V7 with the global-search slice. This plan's store, recap, compression, instruction-review
+> and benchmark work remains a draft; its design and benchmark gates have not been approved or completed.
 
-Status: draft for the product owner's approval, 2026-10-19. Revised the same day after a `prompt-reviewer` review
+Status: supporting Stage 2 design draft, revised 2026-10-19 after a `prompt-reviewer` review
 (3.1/5, 4 High findings, all fixed here). Plans the infra task
 [`workshop-ai-token-optimization-integration`](../../../infra/tasks/projects/workshop-ai/workshop-ai-token-optimization-integration.md)
 (rev. 2), which is not startable until the foundation task is completed

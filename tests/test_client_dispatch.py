@@ -57,14 +57,24 @@ class DispatchTests(unittest.TestCase):
         self.assertIn('--safe-mode', argv)
         self.assertIn('--strict-mcp-config', argv)
         self.assertEqual(argv[argv.index('--tools') + 1], '')
+        self.assertEqual(argv[argv.index('--effort') + 1], 'medium')
 
     @patch.object(chat, '_run')
     def test_reject_invalid_combinations_and_oversize(self, run):
-        for changes in ({'model': 'invented'}, {'mode': 'bypassPermissions'},
+        for changes in ({'model': 'invented'}, {'effort': 'maximum'}, {'mode': 'bypassPermissions'},
                         {'destination': 'existing-terminal'}, {'client': 'codex'},
                         {'agent': 'agentes:review'}, {'message': 'a' * (chat.MAX_TEXT + 1)}):
             with self.subTest(changes=changes):
                 self.assertFalse(chat.dispatch(dict(self.body, **changes), self.snapshot, self.find)['ok'])
+        run.assert_not_called()
+
+    @patch.object(chat, '_run')
+    def test_secret_or_personal_path_is_rejected_before_client_call(self, run):
+        for message in ('api_key=abcdefghijklmnop', r'Open C:\Users\Someone\private.md'):
+            with self.subTest(message=message):
+                result = chat.dispatch(dict(self.body, message=message), self.snapshot, self.find)
+                self.assertFalse(result['ok'])
+                self.assertIn('No se envió', result['message'])
         run.assert_not_called()
 
     @patch.object(chat, '_run', return_value=(1, '', True))

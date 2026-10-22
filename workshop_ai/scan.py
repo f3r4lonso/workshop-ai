@@ -11,7 +11,7 @@ MAX_PACKAGE_BYTES = 256 * 1024
 FORBIDDEN_NAMES = (
     ".env", ".env.*", "auth.json", ".credentials.json", "credentials*.json", "settings.local.json",
     "*.pem", "*.key", "*.p12", "*.pfx", "*.kdbx", "id_rsa*", "id_dsa*", "id_ecdsa*", "id_ed25519*",
-    ".netrc", "_netrc", ".npmrc", ".pypirc", ".git-credentials",
+    ".netrc", "_netrc", ".npmrc", ".pypirc", ".git-credentials", "my-notes.txt",
 )
 ALLOWED_NAMES = (".env.example",)
 FORBIDDEN_DIRS = (".git", ".ssh", ".workshop-ai")

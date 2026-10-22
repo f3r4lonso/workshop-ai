@@ -4,6 +4,7 @@ export const HOME = 'Inicio';
 export const CONVERSE = 'Conversar';
 export const ENGINES = 'Motores';
 export const HISTORY = 'Historial';
+export const HOOKS = 'Hooks';
 
 /**
  * The seven sections of Workshop AI v2 (infra docs/workshop-ai-v2/ux-design.md §2). `sections` are the resource
@@ -16,6 +17,7 @@ export const NAV = [
   { name: 'Agentes y Skills', sections: ['Agentes', 'Skills', 'Asistentes'] },
   { name: 'Archivos', sections: ['Documentos', 'Aplicaciones'] },
   { name: ENGINES, page: true, sections: ['Clientes IA'] },
+  { name: HOOKS, page: true },
   { name: HISTORY, page: true },
 ];
 
@@ -26,6 +28,7 @@ export function navEntry(name) {
 export const SECTION_INTROS = {
   Inicio: 'Todo lo que hay en el Workshop. Elige una sección o escribe en el buscador.',
   Conversar: 'Haz que varios agentes trabajen uno detrás de otro sobre tu pregunta. Solo texto: no tocan archivos.',
+  Hooks: 'Consulta automatizaciones de los clientes. Esta sección no instala ni ejecuta scripts.',
   'Agentes y Skills': 'Agentes (roles especializados), skills (métodos que sigue la sesión) y tus asistentes personales.',
   Archivos: 'Guías, planes y documentos del Workshop y de cada aplicación.',
   Motores: 'Todos los motores de IA del Workshop y lo que la aplicación puede hacer hoy con cada uno.',

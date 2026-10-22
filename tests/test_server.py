@@ -15,6 +15,7 @@ import sys
 import tempfile
 import threading
 import unittest
+import subprocess
 from typing import Any
 from unittest import mock
 
@@ -68,6 +69,20 @@ class ServerTests(unittest.TestCase):
         cls.httpd = server.create_server(cls.state, 0, 0)
         cls.thread = threading.Thread(target=cls.httpd.serve_forever, daemon=True)
         cls.thread.start()
+
+    def test_server_imports_work_when_started_outside_app_directory(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="workshop-launch-cwd-") as cwd:
+            result = subprocess.run(
+                [sys.executable, os.path.join(APP_DIR, "server", "server.py"), "--help"],
+                cwd=cwd,
+                capture_output=True,
+                text=True,
+                timeout=10,
+                check=False,
+            )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("--no-browser", result.stdout)
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -434,7 +449,7 @@ class ServerTests(unittest.TestCase):
     def test_interaction_requires_explicit_origin(self) -> None:
         status, _ = self.post('/api/interaction/document', {'id': 'unknown'})
         self.assertEqual(status, 403)
-        status, _, _ = self.request('POST', '/api/interaction/document', json.dumps({'id': 'unknown'}),
+        status, _, _ = self.request('POST', '/api/interaction/document', None,
             {'X-Workshop-Token': self.state.token, 'Origin': 'https://foreign.example'})
         self.assertEqual(status, 403)
 
