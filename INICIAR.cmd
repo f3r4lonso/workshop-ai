@@ -5,7 +5,7 @@ cd /d "%~dp0"
 if not exist "web\dist\index.html" (
   echo Preparando la interfaz por primera vez. Puede tardar un minuto...
   pushd web
-  call npm install || goto fail
+  call npm ci || goto fail
   call npm run build || goto fail
   popd
 )

@@ -471,7 +471,7 @@ class ServerTests(unittest.TestCase):
 
     def test_missing_build_page(self) -> None:
         html = server.render_index(os.path.join(self.temp, "no-dist"), "t").decode("utf-8")
-        self.assertIn("npm install", html)
+        self.assertIn("npm ci", html)
         self.assertIn("npm run build", html)
 
 

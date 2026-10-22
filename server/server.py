@@ -65,7 +65,7 @@ MISSING_BUILD_PAGE = """<!doctype html>
 <h1>Falta preparar la interfaz</h1>
 <p>No se encontró <code>web\\dist\\index.html</code>. Abre una terminal en la carpeta <code>web</code> de esta
 aplicación y ejecuta:</p>
-<pre>npm install
+<pre>npm ci
 npm run build</pre>
 <p>Después recarga esta página. También puedes cerrar el servidor y hacer doble clic en <code>INICIAR.cmd</code>.</p>
 </body>
